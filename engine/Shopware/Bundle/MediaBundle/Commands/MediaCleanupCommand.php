@@ -29,6 +29,7 @@ use Shopware\Commands\ShopwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Shopware\Models\Media\Media;
 
 /**
  * @category  Shopware
@@ -82,14 +83,19 @@ class MediaCleanupCommand extends ShopwareCommand
     {
         /** @var \Shopware\Components\Model\ModelManager $em */
         $em = $this->getContainer()->get('models');
+        /** @var \Shopware\Models\Media\Repository $repository */
+        $repository = $em->getRepository(Media::class);
 
-        $album = $em->find('Shopware\Models\Media\Album', -13);
-        $mediaList = $album->getMedia();
-        $total = count($mediaList);
+        $query = $repository->getAlbumMediaQuery(-13);
+        $paginator = $em->createPaginator($query);
+        $total = $paginator->count();
 
         try {
-            foreach ($mediaList as $media) {
+            foreach ($paginator->getIterator() as $key => $media) {
                 $em->remove($media);
+                if ($key % 100 == 0) {
+                    $em->flush();
+                }
             }
             $em->flush();
         } catch (ORMException $e) {
